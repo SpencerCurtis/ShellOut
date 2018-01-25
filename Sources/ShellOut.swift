@@ -83,6 +83,40 @@ import Dispatch
     return try shellOut(to: command.string, at: path, outputHandle: outputHandle, errorHandle: errorHandle)
 }
 
+public protocol Handle {
+    func handle(data: Data)
+    func endHandling()
+}
+
+public extension Handle {
+    func endHandling() {}
+}
+
+extension FileHandle: Handle {
+    public func handle(data: Data) {
+        write(data)
+    }
+    
+    public func endHandling() {
+        closeFile()
+    }
+}
+
+public struct StringHandle: Handle {
+    let handlingClosure: (String) -> Void
+    
+    init(handlingClosure: @escaping (String) -> Void) {
+        self.handlingClosure = handlingClosure
+    }
+    
+    public func handle(data: Data) {
+        guard data.isEmpty else { return }
+        let output = data.shellOutput()
+        guard output.isEmpty else { return }
+        handlingClosure(output)
+    }
+}
+
 /// Structure used to pre-define commands for use with ShellOut
 public struct ShellOutCommand {
     /// The string that makes up the command that should be run on the command line
@@ -346,7 +380,7 @@ extension ShellOutError: LocalizedError {
 // MARK: - Private
 
 private extension Process {
-    @discardableResult func launchBash(with command: String, outputHandle: FileHandle? = nil, errorHandle: FileHandle? = nil) throws -> String {
+    @discardableResult func launchBash(with command: String, outputHandle: Handle? = nil, errorHandle: Handle? = nil) throws -> String {
         launchPath = "/bin/bash"
         arguments = ["-c", command]
 
@@ -370,7 +404,7 @@ private extension Process {
             outputQueue.async {
                 let data = handler.availableData
                 outputData.append(data)
-                outputHandle?.write(data)
+                outputHandle?.handle(data: data)
             }
         }
 
@@ -378,7 +412,7 @@ private extension Process {
             outputQueue.async {
                 let data = handler.availableData
                 errorData.append(data)
-                errorHandle?.write(data)
+                errorHandle?.handle(data: data)
             }
         }
         #endif
@@ -394,8 +428,8 @@ private extension Process {
 
         waitUntilExit()
 
-        outputHandle?.closeFile()
-        errorHandle?.closeFile()
+        outputHandle?.endHandling()
+        errorHandle?.endHandling()
 
         #if !os(Linux)
         outputPipe.fileHandleForReading.readabilityHandler = nil
