@@ -99,7 +99,7 @@ class ShellOutTests: XCTestCase {
         XCTAssertEqual(error.localizedDescription, expectedErrorDescription)
     }
 
-    func testCapturingOutputWithHandle() throws {
+    func testCapturingOutputWithFileHandle() throws {
         let pipe = Pipe()
         let output = try shellOut(to: "echo", arguments: ["Hello"], outputHandle: pipe.fileHandleForWriting)
         let capturedData = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -107,9 +107,35 @@ class ShellOutTests: XCTestCase {
         XCTAssertEqual(output + "\n", String(data: capturedData, encoding: .utf8))
     }
 
-    func testCapturingErrorWithHandle() throws {
-        let pipe = Pipe()
+    func testCapturingOutputWithStringHandle() throws {
+        var stringHandleOutput = ""
+        let stringHandle = StringHandle { stringHandleOutput.append($0) }
+        let output = try shellOut(to: "echo", arguments: ["Hello"], outputHandle: stringHandle)
+        XCTAssertEqual(output, "Hello")
+        XCTAssertEqual(output, stringHandleOutput)
+    }
 
+    func testCapturingErrorWithFileHandle() throws {
+        var stringHandleOutput = ""
+        let stringHandle = StringHandle { stringHandleOutput.append($0) }
+
+        do {
+            try shellOut(to: "cd", arguments: ["notADirectory"], errorHandle: stringHandle)
+            XCTFail("Expected expression to throw")
+        } catch let error as ShellOutError {
+            XCTAssertTrue(error.message.contains("notADirectory"))
+            XCTAssertTrue(error.output.isEmpty)
+            XCTAssertTrue(error.terminationStatus != 0)
+            
+            XCTAssertEqual(error.message, stringHandleOutput)
+        } catch {
+            XCTFail("Invalid error type: \(error)")
+        }
+    }
+    
+    func testCapturingErrorWithStringHandle() throws {
+        let pipe = Pipe()
+        
         do {
             try shellOut(to: "cd", arguments: ["notADirectory"], errorHandle: pipe.fileHandleForWriting)
             XCTFail("Expected expression to throw")

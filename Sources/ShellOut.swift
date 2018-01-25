@@ -29,8 +29,8 @@ import Dispatch
 @discardableResult public func shellOut(to command: String,
                                         arguments: [String] = [],
                                         at path: String = ".",
-                                        outputHandle: FileHandle? = nil,
-                                        errorHandle: FileHandle? = nil) throws -> String {
+                                        outputHandle: Handle? = nil,
+                                        errorHandle: Handle? = nil) throws -> String {
     let process = Process()
     let command = "cd \(path.escapingSpaces) && \(command) \(arguments.joined(separator: " "))"
     return try process.launchBash(with: command, outputHandle: outputHandle, errorHandle: errorHandle)
@@ -54,8 +54,8 @@ import Dispatch
  */
 @discardableResult public func shellOut(to commands: [String],
                                         at path: String = ".",
-                                        outputHandle: FileHandle? = nil,
-                                        errorHandle: FileHandle? = nil) throws -> String {
+                                        outputHandle: Handle? = nil,
+                                        errorHandle: Handle? = nil) throws -> String {
     let command = commands.joined(separator: " && ")
     return try shellOut(to: command, at: path, outputHandle: outputHandle, errorHandle: errorHandle)
 }
@@ -78,43 +78,9 @@ import Dispatch
  */
 @discardableResult public func shellOut(to command: ShellOutCommand,
                                         at path: String = ".",
-                                        outputHandle: FileHandle? = nil,
-                                        errorHandle: FileHandle? = nil) throws -> String {
+                                        outputHandle: Handle? = nil,
+                                        errorHandle: Handle? = nil) throws -> String {
     return try shellOut(to: command.string, at: path, outputHandle: outputHandle, errorHandle: errorHandle)
-}
-
-public protocol Handle {
-    func handle(data: Data)
-    func endHandling()
-}
-
-public extension Handle {
-    func endHandling() {}
-}
-
-extension FileHandle: Handle {
-    public func handle(data: Data) {
-        write(data)
-    }
-    
-    public func endHandling() {
-        closeFile()
-    }
-}
-
-public struct StringHandle: Handle {
-    let handlingClosure: (String) -> Void
-    
-    init(handlingClosure: @escaping (String) -> Void) {
-        self.handlingClosure = handlingClosure
-    }
-    
-    public func handle(data: Data) {
-        guard data.isEmpty else { return }
-        let output = data.shellOutput()
-        guard output.isEmpty else { return }
-        handlingClosure(output)
-    }
 }
 
 /// Structure used to pre-define commands for use with ShellOut
@@ -374,6 +340,40 @@ extension ShellOutError: CustomStringConvertible {
 extension ShellOutError: LocalizedError {
     public var errorDescription: String? {
         return description
+    }
+}
+
+public protocol Handle {
+    func handle(data: Data)
+    func endHandling()
+}
+
+public extension Handle {
+    func endHandling() {}
+}
+
+extension FileHandle: Handle {
+    public func handle(data: Data) {
+        write(data)
+    }
+    
+    public func endHandling() {
+        closeFile()
+    }
+}
+
+public struct StringHandle: Handle {
+    let handlingClosure: (String) -> Void
+    
+    init(handlingClosure: @escaping (String) -> Void) {
+        self.handlingClosure = handlingClosure
+    }
+    
+    public func handle(data: Data) {
+        guard !data.isEmpty else { return }
+        let output = data.shellOutput()
+        guard !output.isEmpty else { return }
+        handlingClosure(output)
     }
 }
 
