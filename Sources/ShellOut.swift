@@ -15,9 +15,9 @@ import Dispatch
  *  - parameter command: The command to run
  *  - parameter arguments: The arguments to pass to the command
  *  - parameter path: The path to execute the commands at (defaults to current folder)
- *  - parameter outputHandle: Any `FileHandle` that any output (STDOUT) should be redirected to
+ *  - parameter outputHandle: Any `Handle` that any output (STDOUT) should be redirected to
  *              (at the moment this is only supported on macOS)
- *  - parameter errorHandle: Any `FileHandle` that any error output (STDERR) should be redirected to
+ *  - parameter errorHandle: Any `Handle` that any error output (STDERR) should be redirected to
  *              (at the moment this is only supported on macOS)
  *
  *  - returns: The output of running the command
@@ -41,9 +41,9 @@ import Dispatch
  *
  *  - parameter commands: The commands to run
  *  - parameter path: The path to execute the commands at (defaults to current folder)
- *  - parameter outputHandle: Any `FileHandle` that any output (STDOUT) should be redirected to
+ *  - parameter outputHandle: Any `Handle` that any output (STDOUT) should be redirected to
  *              (at the moment this is only supported on macOS)
- *  - parameter errorHandle: Any `FileHandle` that any error output (STDERR) should be redirected to
+ *  - parameter errorHandle: Any `Handle` that any error output (STDERR) should be redirected to
  *              (at the moment this is only supported on macOS)
  *
  *  - returns: The output of running the command
@@ -65,8 +65,8 @@ import Dispatch
  *
  *  - parameter command: The command to run
  *  - parameter path: The path to execute the commands at (defaults to current folder)
- *  - parameter outputHandle: Any `FileHandle` that any output (STDOUT) should be redirected to
- *  - parameter errorHandle: Any `FileHandle` that any error output (STDERR) should be redirected to
+ *  - parameter outputHandle: Any `Handle` that any output (STDOUT) should be redirected to
+ *  - parameter errorHandle: Any `Handle` that any error output (STDERR) should be redirected to
  *
  *  - returns: The output of running the command
  *  - throws: `ShellOutError` in case the command couldn't be performed, or it returned an error
@@ -343,8 +343,12 @@ extension ShellOutError: LocalizedError {
     }
 }
 
+/// Protocol adopted by objects that handles command output
 public protocol Handle {
+    /// Method called each time command provide new output data
     func handle(data: Data)
+
+    /// Optional method called when command has finished to close the handle
     func endHandling()
 }
 
@@ -362,10 +366,14 @@ extension FileHandle: Handle {
     }
 }
 
+/// Handle to get async output from the command. The `handlingClosure` will be called each time new output string appear.
 public struct StringHandle: Handle {
-    let handlingClosure: (String) -> Void
-    
-    init(handlingClosure: @escaping (String) -> Void) {
+    private let handlingClosure: (String) -> Void
+
+    /// Default initializer
+    ///
+    /// - Parameter handlingClosure: closure called each time new output string is provided
+    public init(handlingClosure: @escaping (String) -> Void) {
         self.handlingClosure = handlingClosure
     }
     

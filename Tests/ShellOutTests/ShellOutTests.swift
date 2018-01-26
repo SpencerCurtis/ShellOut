@@ -116,26 +116,8 @@ class ShellOutTests: XCTestCase {
     }
 
     func testCapturingErrorWithFileHandle() throws {
-        var stringHandleOutput = ""
-        let stringHandle = StringHandle { stringHandleOutput.append($0) }
-
-        do {
-            try shellOut(to: "cd", arguments: ["notADirectory"], errorHandle: stringHandle)
-            XCTFail("Expected expression to throw")
-        } catch let error as ShellOutError {
-            XCTAssertTrue(error.message.contains("notADirectory"))
-            XCTAssertTrue(error.output.isEmpty)
-            XCTAssertTrue(error.terminationStatus != 0)
-            
-            XCTAssertEqual(error.message, stringHandleOutput)
-        } catch {
-            XCTFail("Invalid error type: \(error)")
-        }
-    }
-    
-    func testCapturingErrorWithStringHandle() throws {
         let pipe = Pipe()
-        
+
         do {
             try shellOut(to: "cd", arguments: ["notADirectory"], errorHandle: pipe.fileHandleForWriting)
             XCTFail("Expected expression to throw")
@@ -146,6 +128,24 @@ class ShellOutTests: XCTestCase {
 
             let capturedData = pipe.fileHandleForReading.readDataToEndOfFile()
             XCTAssertEqual(error.message + "\n", String(data: capturedData, encoding: .utf8))
+        } catch {
+            XCTFail("Invalid error type: \(error)")
+        }
+    }
+    
+    func testCapturingErrorWithStringHandle() throws {
+        var stringHandleOutput = ""
+        let stringHandle = StringHandle { stringHandleOutput.append($0) }
+
+        do {
+            try shellOut(to: "cd", arguments: ["notADirectory"], errorHandle: stringHandle)
+            XCTFail("Expected expression to throw")
+        } catch let error as ShellOutError {
+            XCTAssertTrue(error.message.contains("notADirectory"))
+            XCTAssertTrue(error.output.isEmpty)
+            XCTAssertTrue(error.terminationStatus != 0)
+
+            XCTAssertEqual(error.message, stringHandleOutput)
         } catch {
             XCTFail("Invalid error type: \(error)")
         }
